@@ -1,46 +1,77 @@
-
 const TelegramBot = require('node-telegram-bot-api');
-const fetch = require('node-fetch'); // ← вот это оставить
+const fetch = require('node-fetch');
 const cheerio = require('cheerio');
-//https://api.telegram.org/bot7752409637:AAGyOahq728RyWlIqYR_8aKZ26IFhFo8asA
-//https://api.telegram.org/bot7752409637:AAGyOahq728RyWlIqYR_8aKZ26IFhFo8asA/getMe
-// ЗАМЕНИ своими данными
-const token = '7752409637:AAGyOahq728RyWlIqYR_8aKZ26IFhFo8as1A';
-const adminId = '5029697145'; // можно узнать через @userinfobot
 
+const token = 'ТВОЙ_ТОКЕН';
+const adminId = 'ТВОЙ_ID';
 
 const bot = new TelegramBot(token, { polling: false });
-
-const url = 'https://makler.md/ru/transport/cars?list&currency_id=5&list=detail';
+const url = 'https://makler.md/ru/real-estate/real-estate-for-sale/houses-for-sale?list&currency_id=5&list=detail';
 
 let knownLinks = new Set();
 
 async function checkMakler() {
+  console.log('⏰ Начало проверки:', new Date().toISOString());
   try {
-    const res = await fetch(url);
-    const html = await res.text();
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+    console.log('Статус ответа:', response.status);
+    const html = await response.text();
+    console.log('HTML длина:', html.length);
+
     const $ = cheerio.load(html);
+    console.log('Найдено статей:', $('article').length);
 
-    // $('.items-box .item-box').each(async (i, elem) => {
-    //   const title = $(elem).find('.item-title').text().trim();
-    //   const price = $(elem).find('.item-price').text().trim();
-    //   const link = 'https://makler.md' + $(elem).find('a.item-title').attr('href');
+    $('article').each(async (i, elem) => {
+      const $el = $(elem);
+      const img = $el.find('img').attr('src');
+        const title = $el.find('.ls-detail_anUrl span').text().trim();
+      const price = $el.find('.ls-detail_price').text().trim();
+      const date = $el.find('.ls-detail_time').text().trim();
+      const city = $el.find('#pointer_icon').text().trim();
+      const phone = $el.find('.phone_icon').text().trim();
+      const desc = $el.find('.subfir').text().trim();
+      const link = 'https://makler.md' + $el.find('.ls-detail_anUrl').attr('href');
 
-    //   if (!knownLinks.has(link)) {
-    //     knownLinks.add(link);
+      console.log({ img, title, price, date, city, phone, desc, link });
 
-    //     const message = `🚗 *Новое объявление:*\n*${title}*\n💰 ${price}\n🔗 [Открыть объявление](${link})`;
-    //     await bot.sendMessage(adminId, message, { parse_mode: 'Markdown' });
-    //     console.log('message',message);
-    //   }
-    // });
-    console.log('message',"test");
-    await bot.sendMessage(adminId, "test");
-    console.log('Проверка завершена');
+      if (!link || knownLinks.has(link)) {
+        console.log('Пропущено:', link);
+        return;
+      }
+      knownLinks.add(link);
+
+      const message = `
+🏡 *${title}*
+💰 ${price}
+📍 ${city}
+📞 ${phone}
+📅 ${date}
+📝 ${desc}
+🔗 [Смотреть объявление](${link})
+      `.trim();
+
+      console.log('📬 Подготовлено сообщение:', title);
+
+      try {
+        await bot.sendPhoto(adminId, img, {
+          caption: message,
+          parse_mode: 'Markdown'
+        });
+        console.log('📬 Сообщение отправлено:', title);
+      } catch (err) {
+        console.error('❌ Ошибка при отправке:', err.message);
+      }
+    });
+
+    console.log('✅ Проверка завершена');
   } catch (err) {
-    console.error('Ошибка при парсинге:', err.message);
+    console.error('❌ Ошибка при парсинге:', err.message);
   }
 }
 
-// Проверка каждые 60 секунд
-setInterval(checkMakler, 6000);
+
+setInterval(checkMakler, 600); // 60 сек
