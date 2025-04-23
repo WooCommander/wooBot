@@ -6,7 +6,7 @@ const token = 'ТВОЙ_ТОКЕН';
 const adminId = 'ТВОЙ_ID';
 
 const bot = new TelegramBot(token, { polling: false });
-const url = 'https://makler.md/ru/real-estate/real-estate-for-sale/houses-for-sale?list&currency_id=5&list=detail';
+const url = 'https://makler.md/ru/real-estate/real-estate-for-sale';
 
 let knownLinks = new Set();
 
@@ -15,20 +15,21 @@ async function checkMakler() {
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'ru,en;q=0.9',
       }
     });
     console.log('Статус ответа:', response.status);
     const html = await response.text();
     console.log('HTML длина:', html.length);
 
-    const $ = cheerio.load(html);
-    console.log('Найдено статей:', $('article').length);
+    const $ = await cheerio.load(html);
+
 
     $('article').each(async (i, elem) => {
       const $el = $(elem);
       const img = $el.find('img').attr('src');
-        const title = $el.find('.ls-detail_anUrl span').text().trim();
+      const title = $el.find('.ls-detail_anUrl span').text().trim();
       const price = $el.find('.ls-detail_price').text().trim();
       const date = $el.find('.ls-detail_time').text().trim();
       const city = $el.find('#pointer_icon').text().trim();
@@ -75,3 +76,4 @@ async function checkMakler() {
 
 
 setInterval(checkMakler, 600); // 60 сек
+
